@@ -2,9 +2,10 @@ import { Addon, Graph } from '@antv/x6';
 import { useEffect, useRef, useState } from 'react';
 import { StepForwardOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import CreateModal from './components/createModal';
-import { Input, Collapse } from 'antd';
-import LeftCom from './components/Left';
+import ContextMenu from "./components/ContextMenu";
+import { Input, Collapse, Menu } from 'antd';
 import { initformData } from './utils/config';
+import { registerNode, unregisterShape } from "./utils/shape";
 import { cloneDeep } from 'lodash';
 import styles from './index.less';
 
@@ -16,28 +17,32 @@ const stencilList = [
   { label: '数据集成作业', value: 'homework' },
 ];
 
+let graph: Graph;
+let dnd: any;
+
 export default function IndexPage() {
   const stencilContanerRef = useRef<HTMLElement | null>(null);
   const graphContanerRef = useRef<HTMLElement | null>(null);
+  const reff = useRef<HTMLElement | null>(null);
 
   const [searchValue, setSearchValue] = useState<string | undefined>(undefined);
+  const [visible, setVisible] = useState<boolean>(false);
 
-  // const [graph, setGraph] = useState<Graph | undefined>(undefined);
-  // const [dnd, setDnd] = useState<any | undefined>(undefined);
-
-  let graph: Graph;
-  let dnd: any;
+  console.log('graph', graph)
 
   useEffect(() => {
     const stencilContainer = stencilContanerRef.current!;
     const graphContainer = graphContanerRef.current!;
     // 初始化 画布
     if (!graph) {
+      registerNode();
       graph = new Graph({
         container: graphContainer,
+        autoResize: graphContainer,
         width: 800,
         height: 600,
-        grid: true, // 显示网格线
+        // 网格
+        grid: true,
         connecting: {
           router: 'manhattan', // 连接线路由算法
           connector: {
@@ -59,7 +64,21 @@ export default function IndexPage() {
           showNodeSelectionBox: true, // 节点选中后边框
           showEdgeSelectionBox: true, // 边选中后边框
         },
+
         keyboard: true, // 启用键盘事件
+      });
+
+      graph.on("cell:contextmenu", ({ e, cell }) => {
+        let shape = cell.shape;
+        if (shape == "start") return;
+        setVisible(true)
+        graph.resetSelection(cell);
+        reff.current.style.top = e.clientY + 25 + "px";
+        reff.current.style.left = e.clientX + 25 + "px";
+      });
+
+      graph.on("blank:click", () => {
+        setVisible(false)
       });
       // #region 初始化 stencil
       dnd = new Addon.Dnd({
@@ -67,27 +86,22 @@ export default function IndexPage() {
         scaled: true,
         containerParent: stencilContainer,
       });
+
     }
-  });
+    return () => {
+      unregisterShape();
+    }
+  }, []);
 
   const onSearch = (value: string) => {
     setSearchValue(value);
   };
 
-  const startDrag = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const startDrag = (e: React.MouseEvent<HTMLDivElement, MouseEvent>, shape: string) => {
+    console.log("🚀 ~ file: index.tsx ~ line 100 ~ startDrag ~ graph", graph)
     let node = graph.createNode({
-      width: 100,
-      height: 40,
-      attrs: {
-        label: {
-          text: 'Rect',
-          fill: '#6a6c8a',
-        },
-        body: {
-          stroke: '#31d0c6',
-          strokeWidth: 2,
-        },
-      },
+      shape: shape,
+      data: cloneDeep(initformData[shape])
     });
     dnd.start(node, e);
   };
@@ -104,7 +118,7 @@ export default function IndexPage() {
               return (
                 <div
                   style={{ display: 'flex', height: 30, alignItems: 'center' }}
-                  onMouseDown={startDrag}
+                  onMouseDown={(e) => { startDrag(e, it.value) }}
                 >
                   <StepForwardOutlined />
                   <span>{it.label}</span>
@@ -115,7 +129,23 @@ export default function IndexPage() {
         </Collapse>
       </div>
       <div ref={graphContanerRef} className={styles.right} />
-      <CreateModal visible={false} onCancel={() => {}} />
+      <CreateModal visible={false} onCancel={() => { }} />
+      <div style={{ position: 'absolute' }} ref={reff}>
+        {
+          visible ? (
+            <Menu>
+              <Menu.Item key="0">
+                <a href="https://www.antgroup.com">1st menu item</a>
+              </Menu.Item>
+              <Menu.Item key="1">
+                <a href="https://www.aliyun.com">2nd menu item</a>
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item key="3">3rd menu item</Menu.Item>
+            </Menu>
+          ) : null
+        }
+      </div>
     </div>
   );
 }

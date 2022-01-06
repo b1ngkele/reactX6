@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { StepForwardOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { initformData } from '../../utils/config';
+import { initformData } from '../utils/config';
 import { ReactShape } from '@antv/x6-react-shape';
 import { cloneDeep } from 'lodash';
 
@@ -8,10 +8,9 @@ export default (props: {
   node?: ReactShape;
   type: string;
   text: string;
-  dnd: any;
-  graph: any;
+  onMouseDown?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 }) => {
-  const { type, text, dnd, graph } = props;
+  const { type, text, onMouseDown } = props;
   const dom = useMemo(() => {
     if (type === 'change') {
       return (
