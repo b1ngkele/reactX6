@@ -2,10 +2,10 @@ import { Addon, Graph } from '@antv/x6';
 import { useEffect, useRef, useState } from 'react';
 import { StepForwardOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import CreateModal from './components/createModal';
-import ContextMenu from "./components/ContextMenu";
+import ContextMenu from './components/ContextMenu';
 import { Input, Collapse, Menu } from 'antd';
 import { initformData } from './utils/config';
-import { registerNode, unregisterShape } from "./utils/shape";
+import { registerNode, unregisterShape } from './utils/shape';
 import { cloneDeep } from 'lodash';
 import styles from './index.less';
 
@@ -28,8 +28,6 @@ export default function IndexPage() {
   const [searchValue, setSearchValue] = useState<string | undefined>(undefined);
   const [visible, setVisible] = useState<boolean>(false);
 
-  console.log('graph', graph)
-
   useEffect(() => {
     const stencilContainer = stencilContanerRef.current!;
     const graphContainer = graphContanerRef.current!;
@@ -41,45 +39,58 @@ export default function IndexPage() {
         autoResize: graphContainer,
         width: 800,
         height: 600,
-        // 网格
-        grid: true,
+        panning: true,
         connecting: {
-          router: 'manhattan', // 连接线路由算法
-          connector: {
-            name: 'rounded', // 连接线圆角
-            args: {
-              radius: 20,
-            },
-          },
+          allowBlank: false,
+          allowLoop: false,
+          highlight: true,
           snap: {
             radius: 50, // 锚点吸附半径
           },
-          allowBlank: false, // 禁用连线到空处
-          allowMulti: false, // 禁用在同一对节点中多条连线
-          allowLoop: false, // 禁用自循环连线
-          connectionPoint: 'anchor', // 连接点为锚点
+          connector: 'algo-connector',
+          connectionPoint: 'anchor',
+          anchor: 'center',
+          // validateMagnet({ magnet }) {
+          // 	return magnet.getAttribute('port-group') !== 'top'
+          // },
+          createEdge() {
+            return graph.createEdge({
+              shape: 'dag-edge',
+              attrs: {
+                line: {
+                  stroke: '#2CFEFF', // #e52e1a
+                  strokeWidth: 1,
+                  targetMarker: {
+                    name: 'classic',
+                    size: 8,
+                  },
+                },
+              },
+              zIndex: -1,
+            });
+          },
         },
         selecting: {
           enabled: true, // 节点/边 可选中
-          showNodeSelectionBox: true, // 节点选中后边框
-          showEdgeSelectionBox: true, // 边选中后边框
+          showNodeSelectionBox: false, // 节点选中后边框
+          showEdgeSelectionBox: false, // 边选中后边框
         },
-
         keyboard: true, // 启用键盘事件
       });
 
-      graph.on("cell:contextmenu", ({ e, cell }) => {
+      graph.on('cell:contextmenu', ({ e, cell }) => {
         let shape = cell.shape;
-        if (shape == "start") return;
-        setVisible(true)
+        if (shape == 'start') return;
+        setVisible(true);
         graph.resetSelection(cell);
-        reff.current.style.top = e.clientY + 25 + "px";
-        reff.current.style.left = e.clientX + 25 + "px";
+        reff.current.style.top = e.clientY + 25 + 'px';
+        reff.current.style.left = e.clientX + 25 + 'px';
       });
 
-      graph.on("blank:click", () => {
-        setVisible(false)
+      graph.on('blank:click', () => {
+        setVisible(false);
       });
+
       // #region 初始化 stencil
       dnd = new Addon.Dnd({
         target: graph,
@@ -87,21 +98,88 @@ export default function IndexPage() {
         containerParent: stencilContainer,
       });
 
+      // 选中节点/边  #31a3ff
+      graph.on('cell:selected', ({ cell }) => {
+        if (cell.isEdge()) {
+          cell.attr('line/stroke', '#07f5f5');
+          cell.attr('line/strokeWidth', 2.5);
+        } else {
+          cell.setAttrs({
+            body: {
+              fill: '#2cfeff',
+              stroke: '#2cfeff',
+              fillOpacity: '1',
+              strokeOpacity: '1',
+            },
+            label: {
+              fill: '#151B21',
+            },
+            path: {
+              fill: '#151B21',
+            },
+            path2: {
+              fill: '#151B21',
+            },
+          });
+        }
+      });
+
+      // 取消选中节点/边时触发
+      graph.on('cell:unselected', ({ cell }) => {
+        if (cell.isEdge()) {
+          cell.attr('line/stroke', '#2cfeff');
+          cell.attr('line/strokeWidth', 1);
+        } else {
+          cell.setAttrs({
+            body: {
+              fill: '#2cfeff',
+              stroke: '#2cfeff',
+              fillOpacity: '0.15',
+              strokeOpacity: '0.6',
+            },
+            label: {
+              fill: '#2CFEFF',
+            },
+            path: {
+              fill: '#2CFEFF',
+            },
+            path2: {
+              fill: '#2CFEFF',
+            },
+          });
+        }
+      });
     }
+
     return () => {
       unregisterShape();
-    }
+    };
   }, []);
 
   const onSearch = (value: string) => {
     setSearchValue(value);
   };
 
-  const startDrag = (e: React.MouseEvent<HTMLDivElement, MouseEvent>, shape: string) => {
-    console.log("🚀 ~ file: index.tsx ~ line 100 ~ startDrag ~ graph", graph)
+  // 初始化开始节点
+  const initGraphStart = () => {
+    graph.clearCells();
+    graph.center(); // 内容居中
+    graph.zoomTo(1); // 缩放比例
+    const start_node = graph.createNode({
+      shape: 'start',
+      x: 100,
+      y: 300,
+    });
+    graph.addNode(start_node);
+  };
+
+  const startDrag = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    shape: string,
+  ) => {
     let node = graph.createNode({
       shape: shape,
-      data: cloneDeep(initformData[shape])
+      data: cloneDeep(initformData[shape]),
     });
     dnd.start(node, e);
   };
@@ -118,7 +196,9 @@ export default function IndexPage() {
               return (
                 <div
                   style={{ display: 'flex', height: 30, alignItems: 'center' }}
-                  onMouseDown={(e) => { startDrag(e, it.value) }}
+                  onMouseDown={(e) => {
+                    startDrag(e, it.value);
+                  }}
                 >
                   <StepForwardOutlined />
                   <span>{it.label}</span>
@@ -129,22 +209,20 @@ export default function IndexPage() {
         </Collapse>
       </div>
       <div ref={graphContanerRef} className={styles.right} />
-      <CreateModal visible={false} onCancel={() => { }} />
+      <CreateModal visible={false} onCancel={() => {}} />
       <div style={{ position: 'absolute' }} ref={reff}>
-        {
-          visible ? (
-            <Menu>
-              <Menu.Item key="0">
-                <a href="https://www.antgroup.com">1st menu item</a>
-              </Menu.Item>
-              <Menu.Item key="1">
-                <a href="https://www.aliyun.com">2nd menu item</a>
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item key="3">3rd menu item</Menu.Item>
-            </Menu>
-          ) : null
-        }
+        {visible ? (
+          <Menu>
+            <Menu.Item key="0">
+              <a href="https://www.antgroup.com">1st menu item</a>
+            </Menu.Item>
+            <Menu.Item key="1">
+              <a href="https://www.aliyun.com">2nd menu item</a>
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item key="3">3rd menu item</Menu.Item>
+          </Menu>
+        ) : null}
       </div>
     </div>
   );
